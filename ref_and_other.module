@@ -27,13 +27,6 @@ function ref_and_other_menu() {
     'page arguments' => array(),
     'type' => MENU_CALLBACK,
   );
-  $items['ajax/ref_and_other/%'] = array(
-    'page callback' => 'ref_and_other_get_ajax', // Render HTML
-    'page arguments' => array(2),
-    'type' => MENU_CALLBACK,
-    'access arguments' => array('access content'),
-    'delivery callback' => 'ref_and_other_ajax_callback',  // Magic goes here
-  );
   // A menu callback is required when using ajax outside of the Form API.
   $items['ajax/ref_and_other/%'] = array(
     'page callback' => 'ref_and_other_ajax_link_response',
