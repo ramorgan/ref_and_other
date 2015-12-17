@@ -124,33 +124,6 @@ function ref_and_other_ajax_link_response($type = 'ajax', $nid, $offset = NULL, 
 
 }
 
-function _ref_and_other_get_child_nodes($nid, $offset = NULL, $length = NULL) {
-  $current_node = node_load($nid);
-  $current_node = entity_metadata_wrapper('node', $current_node);
-  $refed_child = array();
-  foreach ($current_node->field_parent_to_child_ref as $item) {
-    $refed_child[] = $item->value()->nid;
-  }
-  $all_child = new EntityFieldQuery();
-  $all_child
-    ->propertyCondition('status', NODE_PUBLISHED)
-    ->entityCondition('entity_type', 'node')
-    ->entityCondition('bundle', 'child')
-    ->propertyOrderBy('created')
-    ->propertyOrderBy('changed')
-  ;
-  if (isset($offset) && is_numeric($offset) && isset($length) && is_numeric($length) &&!empty($length)) {
-    $all_child->range($offset, $length);
-  }
-
-  $all_child->propertyCondition('nid', $refed_child, 'NOT IN');
-  $results = $all_child->execute()['node'];
-  //@todo: need better array keys.
-  $list['referenced'] = $refed_child;
-  $list['all_nodes'] = array_keys($results);
-
-  return $list;
-}
 
 /**
  * Demo page callback.
