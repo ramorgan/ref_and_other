@@ -181,3 +181,58 @@ function _ref_and_other_style_item($item) {
   $view = node_view($node, 'teaser');
   return render($view);
 }
+
+/**
+ * Implements hook_block_info().
+ */
+function ref_and_other_block_info() {
+  $blocks = array();
+
+  $blocks['ref_and_other_load_more_block'] = array(
+    'info' => t('Ref and other: Ref and other block'),
+    'cache' => DRUPAL_CACHE_PER_ROLE,
+  );
+
+//  hook_block_info_item
+
+  return $blocks;
+}
+
+// hook_block_configure
+
+// hook_block_save
+
+/**
+ * Implements hook_block_view().
+ */
+function ref_and_other_block_view($delta = '') {
+  $block = array();
+
+  switch ($delta) {
+    case 'ref_and_other_load_more_block':
+      $block['subject'] = t('');
+      $node = menu_get_object();
+      if ($node->type == 'parent') {
+        $block['content'] = array('#markup' => ref_and_other_load_more_block_view($node));
+      }
+    break;
+
+    //hook_block_view_item
+
+  }
+
+  return $block;
+}
+
+function ref_and_other_load_more_block_view($node) {
+  //@todo: pull this out and make a helper function out of it.
+  GLOBAL $base_url;
+  $nid = $node->nid;
+  $offset = 0;
+  $length = 9;
+  $response = drupal_http_request($base_url . '/ref_and_other/get_list/' . $nid);
+  $data = drupal_json_decode($response->data);
+  $data = array_slice($data, $offset, $length);
+  $list = _ref_and_other_style_list($data);
+  return $list;
+}
