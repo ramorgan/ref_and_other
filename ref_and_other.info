@@ -1,0 +1,4 @@
+name = Ref And Other
+description = A description of what your module does.
+core = 7.x
+file[] = ref_and_other_ajax.js

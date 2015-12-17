@@ -1,0 +1,163 @@
+<?php
+/**
+* @file
+* A description of what your module does.
+*/
+/*
+ * https://www.drupal.org/node/2046693
+ */
+/**
+ * Implements hook_init().
+ */
+function ref_and_other_init() {
+  drupal_add_js(drupal_get_path('module','ref_and_other') . '/ref_and_other_ajax.js', 'file');
+}
+/**
+ * Implements hook_menu().
+ */
+function ref_and_other_menu() {
+  $items = array();
+
+  $items['ref_and_other'] = array(
+    'title' => 'Demo page',
+    'description' => '',
+    'access callback' => TRUE,
+    'access arguments' => array('ref_and_other'),
+    'page callback' => 'ref_and_other_demo_page',
+    'page arguments' => array(),
+    'type' => MENU_CALLBACK,
+  );
+  $items['ajax/ref_and_other/%'] = array(
+    'page callback' => 'ref_and_other_get_ajax', // Render HTML
+    'page arguments' => array(2),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'delivery callback' => 'ref_and_other_ajax_callback',  // Magic goes here
+  );
+  // A menu callback is required when using ajax outside of the Form API.
+  $items['ajax/ref_and_other/%'] = array(
+    'page callback' => 'ref_and_other_ajax_link_response',
+    'page arguments' => array(2),
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['ajax/ref_and_other/%nid/%merge/%offset/%limit'] = array(
+    'page callback' => 'ref_and_other_ajax_link_response',
+    'page arguments' => array(2,3,4),
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+function ref_and_other_ajax_link_response($type = 'ajax', $nid, $merge = 1, $offset = NULL, $length = NULL ) {
+  debug($nid, 'nid');
+  debug($merge, 'merge');
+  debug($offset, 'offset');
+  debug($length, 'limit');
+
+  $output = "";
+  $node_list = _ref_and_other_get_child_nodes($nid, $offset, $length);
+  if ($merge) {
+    $node_list = array_merge($node_list['referenced'], $node_list['all_nodes']);
+  }
+  else{
+    $node_list = $node_list['all_nodes'];
+  }
+
+  $list = implode('<br/> ', $node_list);
+  $output .= $list;
+
+  if ($type == 'ajax') {
+    $commands = array();
+    // See ajax_example_advanced.inc for more details on the available commands
+    // and how to use them.
+    $commands[] = ajax_command_append('#myDiv', $output);
+    $link = _ref_and_other_generate_link(t('Click here'), $nid, 0+$length, 10);
+    $commands[] = ajax_command_html('#landing-page-load-more-wrapper', $link);
+    $page = array('#type' => 'ajax', '#commands' => $commands);
+
+    ajax_deliver($page);
+  }
+  else {
+    return $output;
+  }
+
+}
+
+function _ref_and_other_get_child_nodes($nid, $offset = NULL, $length = NULL) {
+  $current_node = node_load($nid);
+  $current_node = entity_metadata_wrapper('node', $current_node);
+  $refed_child = array();
+  foreach ($current_node->field_parent_to_child_ref as $item) {
+    $refed_child[] = $item->value()->nid;
+  }
+  $all_child = new EntityFieldQuery();
+  $all_child
+    ->propertyCondition('status', NODE_PUBLISHED)
+    ->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'child')
+    ->propertyOrderBy('created')
+    ->propertyOrderBy('changed')
+  ;
+  if (isset($offset) && is_numeric($offset) && isset($length) && is_numeric($length) &&!empty($length)) {
+    $all_child->range($offset, $length);
+  }
+
+  $all_child->propertyCondition('nid', $refed_child, 'NOT IN');
+  $results = $all_child->execute()['node'];
+  //@todo: need better array keys.
+  $list['referenced'] = $refed_child;
+  $list['all_nodes'] = array_keys($results);
+
+  return $list;
+}
+
+/**
+ * Demo page callback.
+ * @return string
+ */
+function ref_and_other_demo_page($nid) {
+  dpm(_ref_and_other_get_child_nodes($nid));
+  drupal_add_library('system', 'drupal.ajax');
+
+  $link = l(t('Click here'), 'ajax/ref_and_other/nojs/16/1/0/5',
+    array(
+      'attributes' => array(
+        'class' => array(
+          'use-ajax'
+        ),
+        'id'=>'landing-page-load-more'
+      )
+    )
+  );
+  $link = _ref_and_other_generate_link(t('Click here'), $nid, 0, 10);
+  $output = "<div id='myDiv'></div><div id='landing-page-load-more-wrapper'>$link</div>";
+  return $output;
+}
+
+/**
+ * Generate a link to the load more content.
+ * @param $text
+ * @param $nid
+ * @param $offset
+ * @param $length
+ * @return string
+ *
+ * @todo: error reporting.
+ */
+function _ref_and_other_generate_link($text, $nid, $offset, $length) {
+  $url = "ajax/ref_and_other/nojs/$nid";
+  if (isset($offset) && is_numeric($offset) && isset($length) && is_numeric($length) &&!empty($length)) {
+    $url .= "/$offset/$length";
+  }
+  else{
+    //@todo: error reporting??
+  }
+
+  $link = l($text, $url, array('attributes' => array('class' => array('use-ajax'))));
+  return $link;
+}
