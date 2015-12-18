@@ -332,7 +332,6 @@ function ref_and_other_config_form($form, &$form_state) {
   $view_modes = entity_get_info('node');
   $view_modes = array_keys($view_modes['view modes']);
   $view_modes = array_combine($view_modes, $view_modes);
-  dpm($view_modes);
 //  $view_modes =
 
   $form['ref_and_other_parent_bundle'] = array(
