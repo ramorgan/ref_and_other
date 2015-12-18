@@ -119,6 +119,7 @@ function ref_and_other_child_list_by_nid($nid) {
     watchdog('ref_and_other', 'ref_and_other_child_list_by_nid was called but child field name is empty.');
     drupal_exit();
   }
+  dpm($child_ref_field_name, 'field name');
   $refed_child = array();
   $value = $current_node->{$child_ref_field_name}->value();
   dpm($value, 'value');
@@ -143,11 +144,18 @@ function ref_and_other_child_list_by_nid($nid) {
   }
 
   dpm($refed_child, 'ref child');
+  $child_bundle = variable_get('ref_and_other_child_bundle', '');
+  if (empty($child_bundle)) {
+    drupal_add_http_header('Content-Type', 'application/json');
+    drupal_json_output('');
+    watchdog('ref_and_other', 'ref_and_other_child_list_by_nid was called but child bundle name is empty.');
+    drupal_exit();
+  }
   $all_child = new EntityFieldQuery();
   $all_child
     ->propertyCondition('status', NODE_PUBLISHED)
     ->entityCondition('entity_type', 'node')
-    ->entityCondition('bundle', 'child')
+    ->entityCondition('bundle', $child_bundle)
     ->propertyOrderBy('created')
     ->propertyOrderBy('changed')
   ;
@@ -158,13 +166,23 @@ function ref_and_other_child_list_by_nid($nid) {
   if (!empty($refed_child)) {
     $all_child->propertyCondition('nid', $refed_child, 'NOT IN');
   }
-  $results = $all_child->execute()['node'];
+  $results = $all_child->execute();
+  if (isset($results['node'])) {
+    $results = $results['node'];
+  }
+  else{
+    $results = array();
+  }
+  if (empty($results)) {
+    $results = array();
+  }
   $list = array_merge($refed_child, array_keys($results));
   drupal_add_http_header('Content-Type', 'application/json');
   drupal_json_output($list);
   drupal_exit();
 //  dpm($list);
-  return '';
+//  return json_encode($list);
+
 }
 
 /**
@@ -316,6 +334,13 @@ function ref_and_other_config_form($form, &$form_state) {
     '#title' =>t('Parent bundle name'),
     '#options' => $type_options,
     '#default_value' => variable_get('ref_and_other_parent_bundle', NULL),
+    '#required' => TRUE,
+  );
+  $form['ref_and_other_child_bundle'] = array(
+    '#type' =>'select',
+    '#title' =>t('Child bundle name'),
+    '#options' => $type_options,
+    '#default_value' => variable_get('ref_and_other_child_bundle', NULL),
     '#required' => TRUE,
   );
   $form['ref_and_other_reference_field'] = array(
