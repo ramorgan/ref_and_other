@@ -101,8 +101,8 @@ function ref_and_other_ajax_link_response($type = 'ajax', $nid, $offset = NULL, 
   $response = drupal_http_request($base_url . '/ref_and_other/get_list/' . $nid);
   $data = drupal_json_decode($response->data);
   $data = array_slice($data, $offset, $length);
-  $list = implode('<br/>', $data);
-  $list .= "<hr/>";
+  $list = _ref_and_other_style_list($data);
+
 //  dpm($data);
 
   $output .= $list;
@@ -124,33 +124,6 @@ function ref_and_other_ajax_link_response($type = 'ajax', $nid, $offset = NULL, 
 
 }
 
-function _ref_and_other_get_child_nodes($nid, $offset = NULL, $length = NULL) {
-  $current_node = node_load($nid);
-  $current_node = entity_metadata_wrapper('node', $current_node);
-  $refed_child = array();
-  foreach ($current_node->field_parent_to_child_ref as $item) {
-    $refed_child[] = $item->value()->nid;
-  }
-  $all_child = new EntityFieldQuery();
-  $all_child
-    ->propertyCondition('status', NODE_PUBLISHED)
-    ->entityCondition('entity_type', 'node')
-    ->entityCondition('bundle', 'child')
-    ->propertyOrderBy('created')
-    ->propertyOrderBy('changed')
-  ;
-  if (isset($offset) && is_numeric($offset) && isset($length) && is_numeric($length) &&!empty($length)) {
-    $all_child->range($offset, $length);
-  }
-
-  $all_child->propertyCondition('nid', $refed_child, 'NOT IN');
-  $results = $all_child->execute()['node'];
-  //@todo: need better array keys.
-  $list['referenced'] = $refed_child;
-  $list['all_nodes'] = array_keys($results);
-
-  return $list;
-}
 
 /**
  * Demo page callback.
@@ -188,4 +161,78 @@ function _ref_and_other_generate_link($text, $nid, $offset = NULL, $length = NUL
 
 function ref_and_other_start_page() {
   return 'blank';
+}
+/**
+ * @param $list
+ * @return string
+ */
+function _ref_and_other_style_list($list) {
+//  $list = implode('<br/>', $list);
+//  $list .= "<hr/>";
+  $output = '';
+  foreach ($list as $item) {
+    $output .= _ref_and_other_style_item($item);
+  }
+  $output .= "<hr/>";
+  return $output;
+}
+function _ref_and_other_style_item($item) {
+  $node = node_load($item);
+  $view = node_view($node, 'teaser');
+  return render($view);
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function ref_and_other_block_info() {
+  $blocks = array();
+
+  $blocks['ref_and_other_load_more_block'] = array(
+    'info' => t('Ref and other: Ref and other block'),
+    'cache' => DRUPAL_CACHE_PER_ROLE,
+  );
+
+//  hook_block_info_item
+
+  return $blocks;
+}
+
+// hook_block_configure
+
+// hook_block_save
+
+/**
+ * Implements hook_block_view().
+ */
+function ref_and_other_block_view($delta = '') {
+  $block = array();
+
+  switch ($delta) {
+    case 'ref_and_other_load_more_block':
+      $block['subject'] = t('');
+      $node = menu_get_object();
+      if (isset($node->type) && $node->type == 'parent') {
+        $block['content'] = array('#markup' => ref_and_other_load_more_block_view($node));
+      }
+    break;
+
+    //hook_block_view_item
+
+  }
+
+  return $block;
+}
+
+function ref_and_other_load_more_block_view($node) {
+  //@todo: pull this out and make a helper function out of it.
+  GLOBAL $base_url;
+  $nid = $node->nid;
+  $offset = 0;
+  $length = 9;
+  $response = drupal_http_request($base_url . '/ref_and_other/get_list/' . $nid);
+  $data = drupal_json_decode($response->data);
+  $data = array_slice($data, $offset, $length);
+  $list = _ref_and_other_style_list($data);
+  return $list;
 }
