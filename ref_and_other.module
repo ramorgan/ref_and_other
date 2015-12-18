@@ -44,6 +44,14 @@ function ref_and_other_menu() {
 //    'type' => MENU_CALLBACK,
   );
 
+  $items['admin/ref_and_other/config'] = array(
+    'title' => 'ref_and_other config',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ref_and_other_config_form'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer nodes'),
+//    'type' => MENU_NORMAL_ITEM,
+  );
   return $items;
 }
 
@@ -251,4 +259,38 @@ function _ref_and_other_ajax_get_response($nid, $offset, $length) {
   $data = array_slice($data, $offset, $length);
   $list = _ref_and_other_style_list($data);
   return $list;
+}
+
+function ref_and_other_config_form($form, &$form_state) {
+  $type_options = array();
+  foreach (node_type_get_types() as $item) {
+    $type_options[$item->type] = $item->name;
+  }
+
+  $reference_field_options = array_keys(field_read_fields(array('type' => 'entityreference')));
+  $reference_field_options = array_combine($reference_field_options, $reference_field_options);
+
+  $form['ref_and_other_parent_bundle'] = array(
+    '#type' =>'select',
+    '#title' =>t('Parent bundle name'),
+    '#options' => $type_options,
+    '#default_value' => variable_get('ref_and_other_parent_bundle', NULL),
+    '#required' => TRUE,
+  );
+  $form['ref_and_other_reference_field'] = array(
+    '#type' =>'select',
+    '#title' =>t('Reference field name'),
+    '#options' => $reference_field_options,
+    '#default_value' => variable_get('ref_and_other_reference_field', NULL),
+    '#required' => TRUE,
+  );
+  /*
+  $form[''] = array(
+    '#type' =>'',
+    '#title' =>t(''),
+    '#default_value' => variable_get('', ''),
+    '#required' => TRUE,
+  );
+  /**/
+  return system_settings_form($form);
 }
