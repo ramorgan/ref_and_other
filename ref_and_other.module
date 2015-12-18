@@ -47,14 +47,53 @@ function ref_and_other_menu() {
   return $items;
 }
 
+
+function ref_and_other_start_page() {
+  return 'blank';
+}
 /**
- * Retun a ordered list of child nodes based on the nid provided.
+ * Demo page callback.
+ *
+ * @param $nid
+ * @return string
+ */
+function ref_and_other_demo_page($nid) {
+  return ref_and_other_view($nid, 'Load More',0,9);
+}
+
+function ref_and_other_view($nid, $link_text, $offset, $length, $inject = NULL) {
+  drupal_add_library('system', 'drupal.ajax');
+  $output = "<div id='ref_and_other_load_here'>";
+  if (isset($inject)) {
+    $output .= _ref_and_other_ajax_get_response($nid, 0, $inject);
+    $offset = $offset + $length;
+  }
+  $link = ref_and_other_generate_link($link_text, $nid,$offset,$length);
+  $output .="</div><div id='landing-page-load-more-wrapper'>$link</div>";
+  return $output;
+}
+
+/**
+ * Gets a ordered list of child nodes based on the nid provided.
  * @param int $nid
  */
-function ref_and_other_child_list_by_nid($nid = 16) {
-  debug($nid);
+function ref_and_other_child_list_by_nid($nid) {
   $current_node = node_load($nid);
+  if(!$current_node){
+    drupal_add_http_header('Content-Type', 'application/json');
+    drupal_json_output('');
+    watchdog('ref_and_other', 'Tried to load %nid but it does not exist.', array('%nid' => $nid));
+    drupal_exit();
+  }
   $current_node = entity_metadata_wrapper('node', $current_node);
+  $type = $current_node->getBundle();
+  if ($type != 'parent') {
+    drupal_add_http_header('Content-Type', 'application/json');
+    drupal_json_output('');
+    watchdog('ref_and_other', 'Tried to load %nid but it is the wrong type.', array('%nid' => $nid));
+    drupal_exit();
+  }
+
   $refed_child = array();
   foreach ($current_node->field_parent_to_child_ref as $item) {
     $refed_child[] = (int)$item->value()->nid;
@@ -77,37 +116,38 @@ function ref_and_other_child_list_by_nid($nid = 16) {
   drupal_add_http_header('Content-Type', 'application/json');
   drupal_json_output($list);
   drupal_exit();
-  }
+}
 
-function ref_and_other_ajax_link_response($type = 'ajax', $nid, $offset = NULL, $length = NULL ) {
+/**
+ * @param string $type
+ * @param $nid
+ * @param $offset
+ * @param $length
+ * @return string
+ */
+function ref_and_other_ajax_link_response($type = 'ajax', $nid, $offset , $length) {
   GLOBAL $base_url;
-//  debug($type);
-//  debug($nid, 'nid');
-//  debug($offset, 'offset');
-//  debug($length, 'limit');
-//  dpm($base_url);
-
   $output = "";
-  //@todo: get the real list
   $response = drupal_http_request($base_url . '/ref_and_other/get_list/' . $nid);
   $data = drupal_json_decode($response->data);
   $data = array_slice($data, $offset, $length);
   $list = _ref_and_other_style_list($data);
 
-//  dpm($data);
-
   $output .= $list;
 
+  //Return the data via ajax.
   if ($type == 'ajax') {
     $commands = array();
     // See ajax_example_advanced.inc for more details on the available commands
     // and how to use them.
-    $commands[] = ajax_command_append('#myDiv', $output);
-    $link = _ref_and_other_generate_link(t('Click here'), $nid, $offset+$length, $length);
+    $commands[] = ajax_command_append('#ref_and_other_load_here', $output);
+    //Need to replace the link with a new offset so it loads new content the next time it is clicked.
+    $link = ref_and_other_generate_link(t('Click here'), $nid, $offset+$length, $length);
     $commands[] = ajax_command_html('#landing-page-load-more-wrapper', $link);
-    $page = array('#type' => 'ajax', '#commands' => $commands);
 
-    ajax_deliver($page);
+    //Push the updates out via ajax.
+    $html_update = array('#type' => 'ajax', '#commands' => $commands);
+    ajax_deliver($html_update);
   }
   elseif (user_access("administer nodes")) {
     return $output;
@@ -115,19 +155,6 @@ function ref_and_other_ajax_link_response($type = 'ajax', $nid, $offset = NULL, 
   else{
     drupal_access_denied();
   }
-
-}
-
-
-/**
- * Demo page callback.
- * @return string
- */
-function ref_and_other_demo_page($nid) {
-  drupal_add_library('system', 'drupal.ajax');
-  $link = _ref_and_other_generate_link(t('Click here'), $nid,0,9);
-  $output = "<div id='myDiv'></div><div id='landing-page-load-more-wrapper'>$link</div>";
-  return $output;
 }
 
 /**
@@ -137,37 +164,24 @@ function ref_and_other_demo_page($nid) {
  * @param $offset
  * @param $length
  * @return string
- *
- * @todo: error reporting.
- */
-function _ref_and_other_generate_link($text, $nid, $offset = NULL, $length = NULL) {
-  $url = "ajax/ref_and_other/nojs/$nid";
-  if (isset($offset) && is_numeric($offset) && isset($length) && is_numeric($length) &&!empty($length)) {
-    $url .= "/$offset/$length";
-  }
-  else{
-    //@todo: error reporting??
-  }
+ * @see ref_and_other_ajax_link_response()
 
+ */
+function ref_and_other_generate_link($text, $nid, $offset , $length ) {
+  $url = "ajax/ref_and_other/nojs/$nid/$offset/$length";
   $link = l($text, $url, array('attributes' => array('class' => array('use-ajax'))));
   return $link;
 }
 
-function ref_and_other_start_page() {
-  return 'blank';
-}
 /**
  * @param $list
  * @return string
  */
 function _ref_and_other_style_list($list) {
-//  $list = implode('<br/>', $list);
-//  $list .= "<hr/>";
   $output = '';
   foreach ($list as $item) {
     $output .= _ref_and_other_style_item($item);
   }
-  $output .= "<hr/>";
   return $output;
 }
 function _ref_and_other_style_item($item) {
@@ -201,7 +215,6 @@ function ref_and_other_block_info() {
  */
 function ref_and_other_block_view($delta = '') {
   $block = array();
-
   switch ($delta) {
     case 'ref_and_other_load_more_block':
       $block['subject'] = t('');
@@ -210,20 +223,29 @@ function ref_and_other_block_view($delta = '') {
         $block['content'] = array('#markup' => ref_and_other_load_more_block_view($node));
       }
     break;
-
-    //hook_block_view_item
-
   }
-
   return $block;
 }
 
+/**
+ * Block view call back for ref_and_other_load_more_block
+ * @param $node
+ * @return string
+ * @see ref_and_other_block_view()
+ */
 function ref_and_other_load_more_block_view($node) {
-  //@todo: pull this out and make a helper function out of it.
-  GLOBAL $base_url;
   $nid = $node->nid;
   $offset = 0;
-  $length = 9;
+  $length = 3;
+  $list = '';
+//  $list = _ref_and_other_ajax_get_response($nid, $offset, $length);
+//  dpm($list);
+  $list .= ref_and_other_view($nid, 'Load More', $offset, $length, $length);
+  return $list;
+}
+
+function _ref_and_other_ajax_get_response($nid, $offset, $length) {
+  GLOBAL $base_url;
   $response = drupal_http_request($base_url . '/ref_and_other/get_list/' . $nid);
   $data = drupal_json_decode($response->data);
   $data = array_slice($data, $offset, $length);
