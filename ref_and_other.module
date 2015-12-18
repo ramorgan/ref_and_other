@@ -212,7 +212,7 @@ function ref_and_other_block_view($delta = '') {
     case 'ref_and_other_load_more_block':
       $block['subject'] = t('');
       $node = menu_get_object();
-      if ($node->type == 'parent') {
+      if (isset($node->type) && $node->type == 'parent') {
         $block['content'] = array('#markup' => ref_and_other_load_more_block_view($node));
       }
     break;
