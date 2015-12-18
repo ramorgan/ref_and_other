@@ -3,9 +3,7 @@
 * @file
 * A description of what your module does.
 */
-/*
- * https://www.drupal.org/node/2046693
- */
+
 /**
  * Implements hook_menu().
  */
