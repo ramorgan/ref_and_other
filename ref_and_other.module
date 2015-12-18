@@ -44,6 +44,14 @@ function ref_and_other_menu() {
 //    'type' => MENU_CALLBACK,
   );
 
+  $items['admin/ref_and_other/config'] = array(
+    'title' => 'ref_and_other config',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ref_and_other_config_form'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer nodes'),
+//    'type' => MENU_NORMAL_ITEM,
+  );
   return $items;
 }
 
@@ -58,7 +66,7 @@ function ref_and_other_start_page() {
  * @return string
  */
 function ref_and_other_demo_page($nid) {
-  return ref_and_other_view($nid, 'Load More',0,9);
+  return ref_and_other_view($nid, variable_get('ref_and_other_link_text', 'Load more'),0,9);
 }
 
 function ref_and_other_view($nid, $link_text, $offset, $length, $inject = NULL) {
@@ -69,7 +77,7 @@ function ref_and_other_view($nid, $link_text, $offset, $length, $inject = NULL) 
     $offset = $offset + $length;
   }
   $link = ref_and_other_generate_link($link_text, $nid,$offset,$length);
-  $output .="</div><div id='landing-page-load-more-wrapper'>$link</div>";
+  $output .="</div><div id='landing_page_load_more_wrapper'>$link</div>";
   return $output;
 }
 
@@ -86,23 +94,68 @@ function ref_and_other_child_list_by_nid($nid) {
     drupal_exit();
   }
   $current_node = entity_metadata_wrapper('node', $current_node);
-  $type = $current_node->getBundle();
-  if ($type != 'parent') {
+  $parent_bundle = variable_get('ref_and_other_parent_bundle', '');
+  //IS the bundle set?
+  if (empty($parent_bundle)) {
     drupal_add_http_header('Content-Type', 'application/json');
     drupal_json_output('');
-    watchdog('ref_and_other', 'Tried to load %nid but it is the wrong type.', array('%nid' => $nid));
+    watchdog('ref_and_other', 'ref_and_other_child_list_by_nid was called but bundle is empty.');
+    drupal_exit();
+  }
+  $type = $current_node->getBundle();
+  //Fail if the bundle is wrong.
+  if (!empty($parent_bundle) && $type != $parent_bundle) {
+    drupal_add_http_header('Content-Type', 'application/json');
+    drupal_json_output('');
+    watchdog('ref_and_other', 'Tried to load %nid but is not %bundle.', array('%nid' => $nid, '%bundle' => $parent_bundle));
     drupal_exit();
   }
 
+  $child_ref_field_name = variable_get('ref_and_other_reference_field', '');
+//  variable_del('ref_and_other_reference_field');
+  if (empty($child_ref_field_name)) {
+    drupal_add_http_header('Content-Type', 'application/json');
+    drupal_json_output('');
+    watchdog('ref_and_other', 'ref_and_other_child_list_by_nid was called but child field name is empty.');
+    drupal_exit();
+  }
+  dpm($child_ref_field_name, 'field name');
   $refed_child = array();
-  foreach ($current_node->field_parent_to_child_ref as $item) {
-    $refed_child[] = (int)$item->value()->nid;
+  $value = $current_node->{$child_ref_field_name}->value();
+  dpm($value, 'value');
+  if (!isset($value)) {
+    drupal_add_http_header('Content-Type', 'application/json');
+    drupal_json_output('');
+    watchdog('ref_and_other', 'node %nid does not have a %field', array('%nid' =>$nid, '%field' => $child_ref_field_name));
+    drupal_exit();
+  }
+
+  //single value ref field
+  if (!is_array($value)) {
+    if (is_object($value)) {
+      $refed_child[] = (int)$current_node->{$child_ref_field_name}->nid->value();
+    }
+  }
+  else{
+    //multi value ref field
+    foreach ($current_node->{$child_ref_field_name} as $item) {
+      $refed_child[] = (int)$item->value()->nid;
+    }
+  }
+
+
+  $child_bundle = variable_get('ref_and_other_child_bundle', '');
+  if (empty($child_bundle)) {
+    drupal_add_http_header('Content-Type', 'application/json');
+    drupal_json_output('');
+    watchdog('ref_and_other', 'ref_and_other_child_list_by_nid was called but child bundle name is empty.');
+    drupal_exit();
   }
   $all_child = new EntityFieldQuery();
   $all_child
     ->propertyCondition('status', NODE_PUBLISHED)
     ->entityCondition('entity_type', 'node')
-    ->entityCondition('bundle', 'child')
+    ->entityCondition('bundle', $child_bundle)
     ->propertyOrderBy('created')
     ->propertyOrderBy('changed')
   ;
@@ -110,12 +163,26 @@ function ref_and_other_child_list_by_nid($nid) {
     $all_child->range($offset, $length);
   }
 
-  $all_child->propertyCondition('nid', $refed_child, 'NOT IN');
-  $results = $all_child->execute()['node'];
+  if (!empty($refed_child)) {
+    $all_child->propertyCondition('nid', $refed_child, 'NOT IN');
+  }
+  $results = $all_child->execute();
+  if (isset($results['node'])) {
+    $results = $results['node'];
+  }
+  else{
+    $results = array();
+  }
+  if (empty($results)) {
+    $results = array();
+  }
   $list = array_merge($refed_child, array_keys($results));
   drupal_add_http_header('Content-Type', 'application/json');
   drupal_json_output($list);
   drupal_exit();
+//  dpm($list);
+//  return json_encode($list);
+
 }
 
 /**
@@ -142,8 +209,8 @@ function ref_and_other_ajax_link_response($type = 'ajax', $nid, $offset , $lengt
     // and how to use them.
     $commands[] = ajax_command_append('#ref_and_other_load_here', $output);
     //Need to replace the link with a new offset so it loads new content the next time it is clicked.
-    $link = ref_and_other_generate_link(t('Click here'), $nid, $offset+$length, $length);
-    $commands[] = ajax_command_html('#landing-page-load-more-wrapper', $link);
+    $link = ref_and_other_generate_link(variable_get('ref_and_other_link_text', 'Load more'), $nid, $offset+$length, $length);
+    $commands[] = ajax_command_html('#landing_page_load_more_wrapper', $link);
 
     //Push the updates out via ajax.
     $html_update = array('#type' => 'ajax', '#commands' => $commands);
@@ -186,7 +253,7 @@ function _ref_and_other_style_list($list) {
 }
 function _ref_and_other_style_item($item) {
   $node = node_load($item);
-  $view = node_view($node, 'teaser');
+  $view = node_view($node, variable_get('ref_and_other_child_view_mode', 'teaser'));
   return render($view);
 }
 
@@ -206,9 +273,77 @@ function ref_and_other_block_info() {
   return $blocks;
 }
 
-// hook_block_configure
+/**
+ * Implements hook_block_configure().
+ */
+function ref_and_other_block_configure($delta = '') {
+  $form = array();
 
-// hook_block_save
+  switch ($delta) {
+    case 'ref_and_other_load_more_block':
+      $key = 'ref_and_other_block_ref_and_other_load_more_block_offset';
+//      $form[$key] = ra_
+      $form['ref_and_other_load_more_block_offset'] = array(
+        '#type' =>'textfield',
+        '#title' =>t('Offset'),
+        '#default_value' => variable_get('ref_and_other_load_more_block_offset', '0'),
+        '#required' => TRUE,
+      );
+      $form['ref_and_other_load_more_block_length'] = array(
+        '#type' =>'textfield',
+        '#title' =>t('Length'),
+        '#default_value' => variable_get('ref_and_other_load_more_block_length', '9'),
+        '#required' => TRUE,
+      );
+      /*
+      $form[''] = array(
+        '#type' =>'',
+        '#title' =>t(''),
+        '#default_value' => variable_get('', ''),
+        '#required' => TRUE,
+      );
+      /**/
+    break;
+  }
+  return $form;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function ref_and_other_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'block_admin_configure' && $form['delta']['#value'] == 'ref_and_other_load_more_block') {
+    $form['#validate'][] = 'ref_and_other_block_configure_validate';
+  }
+}
+
+/**
+ * Validation for the ref_and_other block
+ * @param $form
+ * @param $form_state
+ * @see ref_and_other_block_configure
+ */
+function ref_and_other_block_configure_validate(&$form, $form_state) {
+  dpm($form_state);
+  if (!is_numeric($form_state['values']['ref_and_other_load_more_block_offset'])) {
+    form_set_error('ref_and_other_load_more_block_offset', 'Must be a number');
+  }
+  if (!is_numeric($form_state['values']['ref_and_other_load_more_block_length'])) {
+    form_set_error('ref_and_other_load_more_block_offset', 'Must be a number');
+  }
+}
+
+/**
+ * Implements hook_block_save().
+ */
+function ref_and_other_block_save($delta = '', $edit = array()) {
+  switch ($delta) {
+    case 'ref_and_other_load_more_block':
+      variable_set('ref_and_other_load_more_block_offset', $edit['ref_and_other_load_more_block_offset']);
+      variable_set('ref_and_other_load_more_block_length', $edit['ref_and_other_load_more_block_length']);
+      break;
+  }
+}
 
 /**
  * Implements hook_block_view().
@@ -235,12 +370,12 @@ function ref_and_other_block_view($delta = '') {
  */
 function ref_and_other_load_more_block_view($node) {
   $nid = $node->nid;
-  $offset = 0;
-  $length = 3;
+  $offset = variable_get('ref_and_other_load_more_block_offset', 0);
+  $length = variable_get('ref_and_other_load_more_block_length', 9);
   $list = '';
 //  $list = _ref_and_other_ajax_get_response($nid, $offset, $length);
 //  dpm($list);
-  $list .= ref_and_other_view($nid, 'Load More', $offset, $length, $length);
+  $list .= ref_and_other_view($nid, variable_get('ref_and_other_link_text', 'Load more'), $offset, $length, $length);
   return $list;
 }
 
@@ -251,4 +386,64 @@ function _ref_and_other_ajax_get_response($nid, $offset, $length) {
   $data = array_slice($data, $offset, $length);
   $list = _ref_and_other_style_list($data);
   return $list;
+}
+
+function ref_and_other_config_form($form, &$form_state) {
+  $type_options = array();
+  foreach (node_type_get_types() as $item) {
+    $type_options[$item->type] = $item->name;
+  }
+
+  $reference_field_options = array_keys(field_read_fields(array('type' => 'entityreference')));
+  $reference_field_options = array_combine($reference_field_options, $reference_field_options);
+
+  $view_modes = entity_get_info('node');
+  $view_modes = array_keys($view_modes['view modes']);
+  $view_modes = array_combine($view_modes, $view_modes);
+//  $view_modes =
+
+  $form['ref_and_other_parent_bundle'] = array(
+    '#type' =>'select',
+    '#title' =>t('Parent bundle name'),
+    '#options' => $type_options,
+    '#default_value' => variable_get('ref_and_other_parent_bundle', NULL),
+    '#required' => TRUE,
+  );
+  $form['ref_and_other_child_bundle'] = array(
+    '#type' =>'select',
+    '#title' =>t('Child bundle name'),
+    '#options' => $type_options,
+    '#default_value' => variable_get('ref_and_other_child_bundle', NULL),
+    '#required' => TRUE,
+  );
+  $form['ref_and_other_reference_field'] = array(
+    '#type' =>'select',
+    '#title' =>t('Reference field name'),
+    '#options' => $reference_field_options,
+    '#default_value' => variable_get('ref_and_other_reference_field', NULL),
+    '#required' => TRUE,
+  );
+
+  $form['ref_and_other_child_view_mode'] = array(
+    '#type' =>'select',
+    '#title' =>t('Reference field name'),
+    '#options' => $view_modes,
+    '#default_value' => variable_get('ref_and_other_child_view_mode', NULL),
+    '#required' => TRUE,
+  );
+  $form['ref_and_other_link_text'] = array(
+    '#type' =>'textfield',
+    '#title' =>t('Load more link text'),
+    '#default_value' => variable_get('ref_and_other_link_text', 'Load more'),
+    '#required' => TRUE,
+  );
+  /*
+  $form[''] = array(
+    '#type' =>'',
+    '#title' =>t(''),
+    '#default_value' => variable_get('', ''),
+    '#required' => TRUE,
+  );
+  /**/
+  return system_settings_form($form);
 }
