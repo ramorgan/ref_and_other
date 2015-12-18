@@ -118,8 +118,11 @@ function ref_and_other_ajax_link_response($type = 'ajax', $nid, $offset = NULL, 
 
     ajax_deliver($page);
   }
-  else {
+  elseif (user_access("administer nodes")) {
     return $output;
+  }
+  else{
+    drupal_access_denied();
   }
 
 }
