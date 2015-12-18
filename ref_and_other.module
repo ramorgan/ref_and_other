@@ -253,7 +253,7 @@ function _ref_and_other_style_list($list) {
 }
 function _ref_and_other_style_item($item) {
   $node = node_load($item);
-  $view = node_view($node, variable_get('ref_and_other_parent_bundle', 'teaser'));
+  $view = node_view($node, variable_get('ref_and_other_child_view_mode', 'teaser'));
   return render($view);
 }
 
@@ -273,9 +273,77 @@ function ref_and_other_block_info() {
   return $blocks;
 }
 
-// hook_block_configure
+/**
+ * Implements hook_block_configure().
+ */
+function ref_and_other_block_configure($delta = '') {
+  $form = array();
 
-// hook_block_save
+  switch ($delta) {
+    case 'ref_and_other_load_more_block':
+      $key = 'ref_and_other_block_ref_and_other_load_more_block_offset';
+//      $form[$key] = ra_
+      $form['ref_and_other_load_more_block_offset'] = array(
+        '#type' =>'textfield',
+        '#title' =>t('Offset'),
+        '#default_value' => variable_get('ref_and_other_load_more_block_offset', '0'),
+        '#required' => TRUE,
+      );
+      $form['ref_and_other_load_more_block_length'] = array(
+        '#type' =>'textfield',
+        '#title' =>t('Length'),
+        '#default_value' => variable_get('ref_and_other_load_more_block_length', '9'),
+        '#required' => TRUE,
+      );
+      /*
+      $form[''] = array(
+        '#type' =>'',
+        '#title' =>t(''),
+        '#default_value' => variable_get('', ''),
+        '#required' => TRUE,
+      );
+      /**/
+    break;
+  }
+  return $form;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function ref_and_other_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'block_admin_configure' && $form['delta']['#value'] == 'ref_and_other_load_more_block') {
+    $form['#validate'][] = 'ref_and_other_block_configure_validate';
+  }
+}
+
+/**
+ * Validation for the ref_and_other block
+ * @param $form
+ * @param $form_state
+ * @see ref_and_other_block_configure
+ */
+function ref_and_other_block_configure_validate(&$form, $form_state) {
+  dpm($form_state);
+  if (!is_numeric($form_state['values']['ref_and_other_load_more_block_offset'])) {
+    form_set_error('ref_and_other_load_more_block_offset', 'Must be a number');
+  }
+  if (!is_numeric($form_state['values']['ref_and_other_load_more_block_length'])) {
+    form_set_error('ref_and_other_load_more_block_offset', 'Must be a number');
+  }
+}
+
+/**
+ * Implements hook_block_save().
+ */
+function ref_and_other_block_save($delta = '', $edit = array()) {
+  switch ($delta) {
+    case 'ref_and_other_load_more_block':
+      variable_set('ref_and_other_load_more_block_offset', $edit['ref_and_other_load_more_block_offset']);
+      variable_set('ref_and_other_load_more_block_length', $edit['ref_and_other_load_more_block_length']);
+      break;
+  }
+}
 
 /**
  * Implements hook_block_view().
@@ -302,8 +370,8 @@ function ref_and_other_block_view($delta = '') {
  */
 function ref_and_other_load_more_block_view($node) {
   $nid = $node->nid;
-  $offset = 0;
-  $length = 3;
+  $offset = variable_get('ref_and_other_load_more_block_offset', 0);
+  $length = variable_get('ref_and_other_load_more_block_length', 9);
   $list = '';
 //  $list = _ref_and_other_ajax_get_response($nid, $offset, $length);
 //  dpm($list);
