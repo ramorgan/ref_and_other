@@ -94,18 +94,55 @@ function ref_and_other_child_list_by_nid($nid) {
     drupal_exit();
   }
   $current_node = entity_metadata_wrapper('node', $current_node);
-  $type = $current_node->getBundle();
-  if ($type != 'parent') {
+  $parent_bundle = variable_get('ref_and_other_parent_bundle', '');
+  //IS the bundle set?
+  if (empty($parent_bundle)) {
     drupal_add_http_header('Content-Type', 'application/json');
     drupal_json_output('');
-    watchdog('ref_and_other', 'Tried to load %nid but it is the wrong type.', array('%nid' => $nid));
+    watchdog('ref_and_other', 'ref_and_other_child_list_by_nid was called but bundle is empty.');
+    drupal_exit();
+  }
+  $type = $current_node->getBundle();
+  //Fail if the bundle is wrong.
+  if (!empty($parent_bundle) && $type != $parent_bundle) {
+    drupal_add_http_header('Content-Type', 'application/json');
+    drupal_json_output('');
+    watchdog('ref_and_other', 'Tried to load %nid but is not %bundle.', array('%nid' => $nid, '%bundle' => $parent_bundle));
     drupal_exit();
   }
 
-  $refed_child = array();
-  foreach ($current_node->field_parent_to_child_ref as $item) {
-    $refed_child[] = (int)$item->value()->nid;
+  $child_ref_field_name = variable_get('ref_and_other_reference_field', '');
+//  variable_del('ref_and_other_reference_field');
+  if (empty($child_ref_field_name)) {
+    drupal_add_http_header('Content-Type', 'application/json');
+    drupal_json_output('');
+    watchdog('ref_and_other', 'ref_and_other_child_list_by_nid was called but child field name is empty.');
+    drupal_exit();
   }
+  $refed_child = array();
+  $value = $current_node->{$child_ref_field_name}->value();
+  dpm($value, 'value');
+  if (!isset($value)) {
+    drupal_add_http_header('Content-Type', 'application/json');
+    drupal_json_output('');
+    watchdog('ref_and_other', 'node %nid does not have a %field', array('%nid' =>$nid, '%field' => $child_ref_field_name));
+    drupal_exit();
+  }
+
+  //single value ref field
+  if (!is_array($value)) {
+    if (is_object($value)) {
+      $refed_child[] = (int)$current_node->{$child_ref_field_name}->nid->value();
+    }
+  }
+  else{
+    //multi value ref field
+    foreach ($current_node->{$child_ref_field_name} as $item) {
+      $refed_child[] = (int)$item->value()->nid;
+    }
+  }
+
+  dpm($refed_child, 'ref child');
   $all_child = new EntityFieldQuery();
   $all_child
     ->propertyCondition('status', NODE_PUBLISHED)
@@ -118,12 +155,16 @@ function ref_and_other_child_list_by_nid($nid) {
     $all_child->range($offset, $length);
   }
 
-  $all_child->propertyCondition('nid', $refed_child, 'NOT IN');
+  if (!empty($refed_child)) {
+    $all_child->propertyCondition('nid', $refed_child, 'NOT IN');
+  }
   $results = $all_child->execute()['node'];
   $list = array_merge($refed_child, array_keys($results));
   drupal_add_http_header('Content-Type', 'application/json');
   drupal_json_output($list);
   drupal_exit();
+//  dpm($list);
+  return '';
 }
 
 /**
@@ -282,7 +323,7 @@ function ref_and_other_config_form($form, &$form_state) {
     '#title' =>t('Reference field name'),
     '#options' => $reference_field_options,
     '#default_value' => variable_get('ref_and_other_reference_field', NULL),
-    '#required' => TRUE,
+//    '#required' => TRUE,
   );
   /*
   $form[''] = array(
