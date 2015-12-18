@@ -16,7 +16,7 @@ function ref_and_other_menu() {
     'access arguments' => array('access content'),
     'page callback' => 'ref_and_other_start_page',
 //    'page arguments' => array(1),
-    //    'type' => MENU_CALLBACK,
+//    'type' => MENU_CALLBACK,
   );
   $items['ref_and_other/%'] = array(
     'title' => 'Demo page',
@@ -36,13 +36,6 @@ function ref_and_other_menu() {
 //    'type' => MENU_CALLBACK,
   );
   // A menu callback is required when using ajax outside of the Form API.
-  $items['ajax/ref_and_other/%'] = array(
-    'page callback' => 'ref_and_other_ajax_link_response',
-    'page arguments' => array(2),
-    'access callback' => 'user_access',
-    'access arguments' => array('access content'),
-//    'type' => MENU_CALLBACK,
-  );
   $items['ajax/ref_and_other/%/%/%'] = array(
     'page callback' => 'ref_and_other_ajax_link_response',
     'page arguments' => array(2,3,4),
