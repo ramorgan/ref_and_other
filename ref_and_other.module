@@ -9,15 +9,7 @@
  */
 function ref_and_other_menu() {
   $items = array();
-  $items['ref_and_other'] = array(
-    'title' => 'Start page',
-    'description' => '',
-    'access callback' => 'user_access',
-    'access arguments' => array('access content'),
-    'page callback' => 'ref_and_other_start_page',
-    //    'page arguments' => array(1),
-    //    'type' => MENU_CALLBACK,
-  );
+
   $items['ref_and_other/%'] = array(
     'title' => 'Demo page',
     'description' => '',
@@ -55,10 +47,6 @@ function ref_and_other_menu() {
   return $items;
 }
 
-
-function ref_and_other_start_page() {
-  return 'blank';
-}
 
 /**
  * Demo page callback.
