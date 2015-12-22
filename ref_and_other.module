@@ -55,14 +55,24 @@ function ref_and_other_menu() {
  * @return string
  */
 function ref_and_other_demo_page($nid) {
-  return ref_and_other_view($nid, variable_get('ref_and_other_link_text', 'Load more'), 0, 9);
+  return ref_and_other_default_view($nid, variable_get('ref_and_other_link_text', 'Load more'), 0, 9);
 }
 
-function ref_and_other_view($nid, $link_text, $offset, $length, $inject = NULL) {
+/**
+ * @param int $nid
+ * @param int $link_text
+ * @param int $offset
+ * @param int $length
+ * @param int  $inject
+ * How many nodes to display before the load more link is displayed.
+ * @return string
+ */
+function ref_and_other_default_view($nid, $link_text, $offset, $length, $inject = NULL) {
   drupal_add_library('system', 'drupal.ajax');
   $output = "<div id='ref_and_other_load_here'>";
   if (isset($inject)) {
     $output .= _ref_and_other_ajax_get_response($nid, 0, $inject);
+
     $offset = $offset + $length;
   }
   $link = ref_and_other_generate_link($link_text, $nid, $offset, $length);
@@ -234,10 +244,12 @@ function ref_and_other_generate_link($text, $nid, $offset, $length) {
 }
 
 /**
- * @param $list
+ * @param array $list
+ * list of node ids  to be styled
  * @return string
  */
 function _ref_and_other_style_list($list) {
+  dpm($list, 'list');
   $output = '';
   foreach ($list as $item) {
     $output .= _ref_and_other_style_item($item);
@@ -245,8 +257,12 @@ function _ref_and_other_style_list($list) {
   return $output;
 }
 
-function _ref_and_other_style_item($item) {
-  $node = node_load($item);
+/**
+ * @param $nid
+ * @return string
+ */
+function _ref_and_other_style_item($nid) {
+  $node = node_load($nid);
   $view = node_view($node, variable_get('ref_and_other_child_view_mode', 'teaser'));
   return render($view);
 }
@@ -369,10 +385,17 @@ function ref_and_other_load_more_block_view($node) {
   $list = '';
 //  $list = _ref_and_other_ajax_get_response($nid, $offset, $length);
 //  dpm($list);
-  $list .= ref_and_other_view($nid, variable_get('ref_and_other_link_text', 'Load more'), $offset, $length, $length);
+  $list .= ref_and_other_default_view($nid, variable_get('ref_and_other_link_text', 'Load more'), $offset, $length, $length);
   return $list;
 }
 
+/**
+ * @param int $nid
+ * Parent node id
+ * @param int $offset
+ * @param int $length
+ * @return string
+ */
 function _ref_and_other_ajax_get_response($nid, $offset, $length) {
   GLOBAL $base_url;
   $response = drupal_http_request($base_url . '/ref_and_other/get_list/' . $nid);
