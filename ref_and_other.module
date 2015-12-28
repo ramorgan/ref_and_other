@@ -72,7 +72,6 @@ function ref_and_other_default_view($nid, $link_text, $offset, $length, $inject 
   $output = "<div id='ref_and_other_load_here'>";
   if (isset($inject)) {
     $output .= _ref_and_other_ajax_get_response($nid, 0, $inject);
-
     $offset = $offset + $length;
   }
   $link = ref_and_other_generate_link($link_text, $nid, $offset, $length);
@@ -230,6 +229,7 @@ function ref_and_other_ajax_link_response($type = 'ajax', $nid, $offset, $length
 
 /**
  * Generate a link to the load more content.
+ *
  * @param $text
  * @param $nid
  * @param $offset
@@ -244,12 +244,13 @@ function ref_and_other_generate_link($text, $nid, $offset, $length) {
 }
 
 /**
+ *
+ *
  * @param array $list
- * list of node ids  to be styled
+ * list of node ids to be styled
  * @return string
  */
 function _ref_and_other_style_list($list) {
-  dpm($list, 'list');
   $output = '';
   foreach ($list as $item) {
     $output .= _ref_and_other_style_item($item);
@@ -443,7 +444,7 @@ function ref_and_other_config_form($form, &$form_state) {
 
   $form['ref_and_other_child_view_mode'] = array(
     '#type' => 'select',
-    '#title' => t('Reference field name'),
+    '#title' => t('Child view mode'),
     '#options' => $view_modes,
     '#default_value' => variable_get('ref_and_other_child_view_mode', NULL),
     '#required' => TRUE,
