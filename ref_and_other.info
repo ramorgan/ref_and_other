@@ -2,4 +2,5 @@ name = Ref And Other
 description = description = Load child nodes referenced on a parent node and then loads the rest of the child type nodes with an ajax load more display
 core = 7.x
 file[] = ref_and_other_ajax.js
+configure = admin/ref_and_other/config
 ;https://github.com/ramorgan/ref_and_other
