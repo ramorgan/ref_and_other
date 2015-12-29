@@ -71,8 +71,12 @@ function ref_and_other_default_view($nid, $link_text, $offset, $length, $inject 
   drupal_add_library('system', 'drupal.ajax');
   $output = "<div id='ref_and_other_load_here'>";
   if (isset($inject)) {
-    $output .= _ref_and_other_ajax_get_response($nid, 0, $inject);
-    $offset = $offset + $length;
+    $data = _ref_and_other_ajax_get_response($nid, 0, $inject);
+    dpm($data);
+    $list = _ref_and_other_style_list($data);
+    dpm(array($list,));
+    $output .= $list;
+    $offset = (int)$offset + (int)$length;
   }
   $link = ref_and_other_generate_link($link_text, $nid, $offset, $length);
   $output .= "</div><div id='landing_page_load_more_wrapper'>$link</div>";
@@ -382,8 +386,7 @@ function _ref_and_other_ajax_get_response($nid, $offset, $length) {
   $response = drupal_http_request($base_url . '/ref_and_other/get_list/' . $nid);
   $data = drupal_json_decode($response->data);
   $data = array_slice($data, $offset, $length);
-  $list = _ref_and_other_style_list($data);
-  return $list;
+  return $data;
 }
 
 function ref_and_other_config_form($form, &$form_state) {
