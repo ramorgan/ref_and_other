@@ -72,9 +72,7 @@ function ref_and_other_default_view($nid, $link_text, $offset, $length, $inject 
   $output = "<div id='ref_and_other_load_here'>";
   if (isset($inject)) {
     $data = _ref_and_other_ajax_get_response($nid, 0, $inject);
-    dpm($data);
     $list = _ref_and_other_style_list($data);
-    dpm(array($list,));
     $output .= $list;
     $offset = (int)$offset + (int)$length;
   }
@@ -123,10 +121,8 @@ function ref_and_other_child_list_by_nid($nid) {
     watchdog('ref_and_other', 'ref_and_other_child_list_by_nid was called but child field name is empty.');
     drupal_exit();
   }
-  dpm($child_ref_field_name, 'field name');
   $refed_child = array();
   $value = $current_node->{$child_ref_field_name}->value();
-  dpm($value, 'value');
   if (!isset($value)) {
     drupal_add_http_header('Content-Type', 'application/json');
     drupal_json_output('');
@@ -321,7 +317,6 @@ function ref_and_other_form_alter(&$form, &$form_state, $form_id) {
  * @see ref_and_other_block_configure
  */
 function ref_and_other_block_configure_validate(&$form, $form_state) {
-  dpm($form_state);
   if (!is_numeric($form_state['values']['ref_and_other_load_more_block_offset'])) {
     form_set_error('ref_and_other_load_more_block_offset', 'Must be a number');
   }
